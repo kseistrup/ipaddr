@@ -1,0 +1,144 @@
+#!/usr/bin/python3
+# -*- mode: python; coding: utf-8 -*-
+"""
+Usage: ip.is_x [OPTIONS] [IP_ADDRESS]
+
+positional arguments:
+  IP_ADDRESS       IPv4 or IPv6 address, or integer
+
+optional arguments:
+  -h, --help       show this help message and exit
+  -v, --version    show version information and exit
+  -c, --copyright  show copying policy and exit
+or:
+  -q, --quiet      don't say a thing
+
+The program takes a single IP address as its argument, prints ‘true’
+or ‘false’ on standard output and exits accordingly.
+
+If an error occurs, the exit code is 2.
+
+IP address is read from standard if not given on then commandline.
+"""
+##############################################################################
+# This program is free software; you can redistribute it and/or modify it    #
+# under the terms of the GNU General Public License as published by the Free #
+# Software Foundation; either version 3 of the License, or (at your option)  #
+# any later version.                                                         #
+#                                                                            #
+# This program is distributed in the hope that it will be useful, but with-  #
+# out any warranty; without even the implied warranty of merchantability or  #
+# fitness for a particular purpose. See the GNU General Public License for   #
+# more details.  <http://gplv3.fsf.org/>                                     #
+##############################################################################
+
+import sys
+import os
+import pathlib
+import argparse
+import pprint
+import ipaddress
+
+try:
+    from locale import (Error, setlocale, LC_ALL)
+    _ = setlocale(LC_ALL, '')
+except (ImportError, NameError, Error):
+    pass
+
+__author__ = 'Klaus Alexander Seistrup <klaus@seistrup.dk>'
+__revision__ = '2018-04-29'
+__version__ = '0.0.3 ({})'.format(__revision__)
+__copyright__ = """\
+ip.is_x {}
+Copyright © 2016-18 Klaus Alexander Seistrup <klaus@seistrup.dk>
+
+This is free software; see the source for copying conditions. There is no
+warranty; not even for merchantability or fitness for a particular purpose.\
+""".format(__version__)
+
+DEBUG = os.environ.get('DEBUG', 'False')[0].upper() in '1JTY'  # 1/Ja/True/Yes
+
+EPILOG = """\
+The program takes a single IP address as its argument, prints ‘true’
+or ‘false’ on standard output and exits accordingly.
+
+If an error occurs, the exit code is 2.
+
+IP address is read from standard if not given on then commandline.\
+"""
+
+
+def die(message=None):
+    """ Exit gracefully"""
+    if message:
+        print(message, file=sys.stderr)
+    sys.exit(2 if message else 0)
+
+
+def debug(head, data):
+    """Possibly pretty print an object to stderr"""
+    if DEBUG:
+        pprint.pprint({head: data}, stream=sys.stderr)
+
+
+def main(progname='ip.is_x'):
+    """Main entry point"""
+
+    debug('argv', sys.argv)
+
+    parser = argparse.ArgumentParser(
+        prog=progname,
+        formatter_class=argparse.RawTextHelpFormatter,
+        epilog=EPILOG
+    )
+    parser.add_argument('-v', '--version', action='version',
+                        version='%(prog)s/{}'.format(__version__),
+                        help='show version information and exit')
+    parser.add_argument('-c', '--copyright', action='version',
+                        version=__copyright__,
+                        help='show copying policy and exit')
+    parser.add_argument('-q', '--quiet', action='store_true',
+                        help="don't say a thing")
+    parser.add_argument('IP_ADDRESS', nargs='?',
+                        help='IPv4 or IPv6 address')
+
+    args = parser.parse_args()
+    debug('args', args)
+
+    transform = {
+        "ip.is_global": lambda ip: ip.is_global,
+        "ip.is_link_local": lambda ip: ip.is_link_local,
+        "ip.is_loopback": lambda ip: ip.is_loopback,
+        "ip.is_multicast": lambda ip: ip.is_multicast,
+        "ip.is_private": lambda ip: ip.is_private,
+        "ip.is_reserved": lambda ip: ip.is_reserved,
+        "ip.is_unspecified": lambda ip: ip.is_unspecified,
+        "ip.is_ipv4": lambda ip: ip.version == 4,
+        "ip.is_ipv6": lambda ip: ip.version == 6,
+    }.get(progname, None)
+
+    if transform is None:
+        die('please call as ip.is_{global,link_local,loopback,multicast,private,reserved,unspecified,ipv4,ipv6}')
+
+    try:
+        addr = args.IP_ADDRESS or sys.stdin.read().strip()
+        if not addr:
+            die('missing argument')
+        ipvx = ipaddress.ip_address(
+            int(addr) if addr.isdigit() else addr
+        )
+    except ValueError as error:
+        die(error)
+
+    result = transform(ipvx)
+
+    if not args.quiet:
+        print(str(result).lower())
+
+    return 0 if result else 1  # explicit is better than implicit
+
+
+if __name__ == '__main__':
+    sys.exit(main(pathlib.Path(sys.argv[0]).name))
+
+# eof
