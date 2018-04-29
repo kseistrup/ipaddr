@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 # -*- mode: python; coding: utf-8 -*-
 """
 Usage: ip.x [OPTIONS] [IP_ADDRESS [IP_ADDRESS …]]
